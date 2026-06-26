@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="nl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Talk to Mare</title>
+<title>Praat met Mare</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; overflow: hidden; background: #1a0f0a; font-family: Georgia, serif; }
@@ -16,7 +16,6 @@
     object-fit: cover; object-position: center bottom;
   }
 
-  /* bottom gradient so Mare sits naturally */
   #scene::after {
     content: '';
     position: absolute; bottom: 0; left: 0; right: 0;
@@ -25,7 +24,6 @@
     pointer-events: none;
   }
 
-  /* Mare */
   #mare-container {
     position: absolute; bottom: 0; left: 50%;
     transform: translateX(-50%);
@@ -45,13 +43,12 @@
     50%       { transform: translateY(-8px); }
   }
 
-  #mare-image.talking  { animation: talk 0.35s ease-in-out infinite alternate; }
+  #mare-image.talking { animation: talk 0.35s ease-in-out infinite alternate; }
   @keyframes talk {
     from { transform: translateY(0); }
     to   { transform: translateY(-5px); }
   }
 
-  /* Speech bubble */
   #speech-bubble {
     position: absolute;
     bottom: calc(min(320px, 55vw) * 0.9);
@@ -74,7 +71,6 @@
   }
   #speech-bubble.visible { opacity: 1; }
 
-  /* Interim transcript */
   #interim-text {
     position: fixed; bottom: 24px; left: 0; right: 0;
     text-align: center; font-size: 13px;
@@ -83,7 +79,6 @@
     text-shadow: 0 1px 4px rgba(0,0,0,0.6);
   }
 
-  /* Status */
   #status-text {
     position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%);
     font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
@@ -91,7 +86,6 @@
     text-shadow: 0 1px 4px rgba(0,0,0,0.6);
   }
 
-  /* Start screen */
   #start {
     position: fixed; inset: 0;
     background: rgba(15,8,3,0.88);
@@ -121,12 +115,11 @@
 </head>
 <body>
 
-<!-- Start screen — needed so browser allows audio/mic on user gesture -->
 <div id="start">
   <div id="start-inner">
     <h1>Mare</h1>
-    <p>Tap to talk to Mare.<br>She is waiting.</p>
-    <button id="start-btn" onclick="begin()">Talk to Mare</button>
+    <p>Tik om met Mare te praten.<br>Ze wacht op je.</p>
+    <button id="start-btn" onclick="begin()">Praat met Mare</button>
   </div>
 </div>
 
@@ -142,12 +135,10 @@
 <div id="status-text">mare</div>
 
 <script>
-const sessionId = Math.random().toString(36).slice(2);
-
-const mareImg    = document.getElementById('mare-image');
-const bubble     = document.getElementById('speech-bubble');
-const interimEl  = document.getElementById('interim-text');
-const statusEl   = document.getElementById('status-text');
+const mareImg   = document.getElementById('mare-image');
+const bubble    = document.getElementById('speech-bubble');
+const interimEl = document.getElementById('interim-text');
+const statusEl  = document.getElementById('status-text');
 
 let hist = [];
 let busy = false;
@@ -165,10 +156,7 @@ const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL = `${wsProtocol}//${location.host}/listen`;
 
 function setStatus(t) { statusEl.textContent = t; }
-
-function setMareState(s) {
-  mareImg.className = s || '';
-}
+function setMareState(s) { mareImg.className = s || ''; }
 
 function showBubble(text) {
   clearTimeout(bubbleTimer);
@@ -180,7 +168,6 @@ function hideBubble(ms = 9000) {
   bubbleTimer = setTimeout(() => bubble.classList.remove('visible'), ms);
 }
 
-// ── Always-on Deepgram listening (Mirror pattern exactly) ────────────────
 async function startListening() {
   if (micActive) return;
   try {
@@ -192,7 +179,7 @@ async function startListening() {
 
     deepgramWs.onopen = () => {
       micActive = true;
-      setStatus('listening');
+      setStatus('luistert...');
 
       processor = audioContext.createScriptProcessor(4096, 1, 1);
       source.connect(processor);
@@ -238,27 +225,19 @@ async function startListening() {
       } catch(e) {}
     };
 
-    deepgramWs.onerror = () => {
-      micActive = false;
-      setTimeout(startListening, 2000);
-    };
-
-    deepgramWs.onclose = () => {
-      micActive = false;
-      if (!isSpeaking) setTimeout(startListening, 1000);
-    };
+    deepgramWs.onerror = () => { micActive = false; setTimeout(startListening, 2000); };
+    deepgramWs.onclose = () => { micActive = false; if (!isSpeaking) setTimeout(startListening, 1000); };
 
   } catch(e) {
-    setStatus('mic unavailable');
+    setStatus('microfoon niet beschikbaar');
   }
 }
 
-// ── Speak (Mirror pattern exactly) ──────────────────────────────────────
 async function speak(text) {
   return new Promise(async (resolve) => {
     try {
       isSpeaking = true;
-      setStatus('mare is speaking...');
+      setStatus('mare praat...');
       setMareState('talking');
       accumulated = '';
       interimEl.textContent = '';
@@ -284,7 +263,7 @@ async function speak(text) {
         currentAudio = null;
         setMareState('');
         setTimeout(() => {
-          setStatus('listening');
+          setStatus('luistert...');
           if (!micActive) startListening();
         }, 600);
         hideBubble();
@@ -297,17 +276,16 @@ async function speak(text) {
     } catch(e) {
       isSpeaking = false;
       setMareState('');
-      setStatus('listening');
+      setStatus('luistert...');
       resolve();
     }
   });
 }
 
-// ── Send to Mare (Claude) ────────────────────────────────────────────────
 async function sendToMare(userMsg) {
   if (busy) return;
   busy = true;
-  setStatus('mare is thinking...');
+  setStatus('mare denkt...');
 
   if (userMsg && userMsg !== '[START]') {
     hist.push({ role: 'user', content: userMsg });
@@ -319,11 +297,7 @@ async function sendToMare(userMsg) {
     const r = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 300,
-        messages
-      })
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 300, messages })
     });
 
     const data = await r.json();
@@ -337,18 +311,17 @@ async function sendToMare(userMsg) {
       await speak(reply);
     } else {
       busy = false;
-      setStatus('listening');
+      setStatus('luistert...');
     }
   } catch(e) {
     busy = false;
-    setStatus('listening');
+    setStatus('luistert...');
   }
 }
 
-// ── Begin ────────────────────────────────────────────────────────────────
 async function begin() {
   document.getElementById('start').style.display = 'none';
-  setStatus('opening...');
+  setStatus('verbinden...');
   await startListening();
   await sendToMare('[START]');
 }
