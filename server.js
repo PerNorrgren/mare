@@ -102,7 +102,7 @@ wss.on('connection', (clientWs) => {
   console.log('Client connected for transcription');
 
   const deepgramWs = new WebSocket(
-    'wss://api.deepgram.com/v1/listen?model=nova-2-general&detect_language=true&encoding=linear16&sample_rate=16000&channels=1&smart_format=true&endpointing=400&utterance_end_ms=1200&interim_results=true',
+    'wss://api.deepgram.com/v1/listen?model=nova-2&language=multi&encoding=linear16&sample_rate=16000&channels=1&smart_format=true&endpointing=400&utterance_end_ms=1200&interim_results=true',
     { headers: { Authorization: `Token ${DEEPGRAM_KEY}` } }
   );
 
