@@ -135,6 +135,7 @@
 <div id="status-text">mare</div>
 
 <script>
+const sessionId = Math.random().toString(36).slice(2);
 const mareImg   = document.getElementById('mare-image');
 const bubble    = document.getElementById('speech-bubble');
 const interimEl = document.getElementById('interim-text');
@@ -287,25 +288,19 @@ async function sendToMare(userMsg) {
   busy = true;
   setStatus('mare denkt...');
 
-  if (userMsg && userMsg !== '[START]') {
-    hist.push({ role: 'user', content: userMsg });
-  }
-
-  const messages = hist.length ? hist : [{ role: 'user', content: 'begin' }];
+  const message = (userMsg && userMsg !== '[START]') ? userMsg : 'begin';
 
   try {
     const r = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 300, messages })
+      body: JSON.stringify({ message, sessionId })
     });
 
     const data = await r.json();
     const reply = data.content?.[0]?.text || '';
 
     if (reply) {
-      if (!hist.find(m => m.role === 'user')) hist.push({ role: 'user', content: 'begin' });
-      hist.push({ role: 'assistant', content: reply });
       showBubble(reply);
       busy = false;
       await speak(reply);
