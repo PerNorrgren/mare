@@ -3,114 +3,266 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Praat met Mare</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; overflow: hidden; background: #1a0f0a; font-family: Georgia, serif; }
+  html, body {
+    height: 100%; overflow: hidden;
+    background: #1a0f0a;
+    font-family: Georgia, serif;
+    -webkit-tap-highlight-color: transparent;
+  }
 
   #scene { position: fixed; inset: 0; }
 
   #bedroom-bg {
     position: absolute; inset: 0;
     width: 100%; height: 100%;
-    object-fit: cover; object-position: center bottom;
+    object-fit: cover;
+    object-position: center center;
   }
 
   #scene::after {
     content: '';
     position: absolute; bottom: 0; left: 0; right: 0;
-    height: 30%;
-    background: linear-gradient(to top, rgba(50,25,10,0.3), transparent);
+    height: 35%;
+    background: linear-gradient(to top, rgba(50,25,10,0.4), transparent);
     pointer-events: none;
   }
 
+  /* ── Mare ── */
   #mare-container {
-    position: absolute; bottom: 0; left: 50%;
+    position: absolute;
+    bottom: 0;
+    left: 50%;
     transform: translateX(-50%);
-    width: min(320px, 55vw);
     pointer-events: none;
+
+    /* iPad portrait */
+    width: 38vw;
+    max-width: 380px;
+    min-width: 200px;
   }
 
   #mare-image {
     width: 100%; height: auto;
     mix-blend-mode: multiply;
-    filter: drop-shadow(0 8px 24px rgba(0,0,0,0.35));
+    filter: drop-shadow(0 8px 28px rgba(0,0,0,0.4));
     animation: breathe 4s ease-in-out infinite;
+    display: block;
+    transition: opacity 0.2s ease;
   }
 
   @keyframes breathe {
     0%, 100% { transform: translateY(0); }
-    50%       { transform: translateY(-8px); }
+    50%       { transform: translateY(-10px); }
   }
-
-  #mare-image.talking { animation: talk 0.35s ease-in-out infinite alternate; }
+  /* ── Mare animation states ── */
+  #mare-image.talking {
+    animation: talk 0.4s ease-in-out infinite alternate;
+    filter: drop-shadow(0 8px 28px rgba(0,0,0,0.4)) brightness(1.04) saturate(1.08);
+  }
   @keyframes talk {
-    from { transform: translateY(0); }
-    to   { transform: translateY(-5px); }
+    0%   { transform: translateY(0px) rotate(0deg) scaleY(1); }
+    30%  { transform: translateY(-4px) rotate(0.5deg) scaleY(1.01); }
+    60%  { transform: translateY(-2px) rotate(-0.3deg) scaleY(0.99); }
+    100% { transform: translateY(-6px) rotate(0.2deg) scaleY(1.01); }
   }
 
+  #mare-image.listening {
+    animation: listen 2.5s ease-in-out infinite;
+    filter: drop-shadow(0 8px 28px rgba(0,0,0,0.4)) brightness(1.02);
+  }
+  @keyframes listen {
+    0%   { transform: translateY(0px) rotate(-1.5deg); }
+    40%  { transform: translateY(-4px) rotate(1deg); }
+    70%  { transform: translateY(-2px) rotate(-0.5deg); }
+    100% { transform: translateY(0px) rotate(-1.5deg); }
+  }
+
+  #mare-image.thinking {
+    animation: think 1.8s ease-in-out infinite;
+    filter: drop-shadow(0 8px 28px rgba(0,0,0,0.4)) brightness(0.97);
+  }
+  @keyframes think {
+    0%   { transform: translateY(0px) rotate(0deg); }
+    25%  { transform: translateY(-3px) rotate(-2deg); }
+    75%  { transform: translateY(-5px) rotate(-2.5deg); }
+    100% { transform: translateY(0px) rotate(0deg); }
+  }
+
+  #mare-image.happy {
+    animation: happy 0.6s ease-in-out 3;
+    filter: drop-shadow(0 8px 28px rgba(255,200,100,0.5)) brightness(1.08) saturate(1.15);
+  }
+  @keyframes happy {
+    0%   { transform: translateY(0px) scale(1); }
+    30%  { transform: translateY(-14px) scale(1.03); }
+    60%  { transform: translateY(-4px) scale(0.99); }
+    80%  { transform: translateY(-10px) scale(1.01); }
+    100% { transform: translateY(0px) scale(1); }
+  }
+
+  #mare-image.worried {
+    animation: worried 3s ease-in-out infinite;
+    filter: drop-shadow(0 8px 28px rgba(150,100,200,0.4)) brightness(0.94) saturate(0.9);
+  }
+  @keyframes worried {
+    0%   { transform: translateY(0px) rotate(0deg); }
+    20%  { transform: translateY(-2px) rotate(-1deg); }
+    50%  { transform: translateY(-4px) rotate(1.5deg); }
+    80%  { transform: translateY(-1px) rotate(-0.5deg); }
+    100% { transform: translateY(0px) rotate(0deg); }
+  }
+
+  /* ── Speech bubble ── */
   #speech-bubble {
     position: absolute;
-    bottom: calc(min(320px, 55vw) * 0.9);
-    left: 50%; transform: translateX(-50%);
-    width: min(340px, 88vw);
+    left: 50%;
+    transform: translateX(-50%);
+    /* sits above Mare — adjusted per device below */
+    bottom: 42vw;
+
+    width: min(420px, 84vw);
     background: rgba(255,252,248,0.97);
-    border-radius: 18px;
-    padding: 14px 18px;
-    font-size: 15px; line-height: 1.6; color: #3a2a1a;
-    box-shadow: 0 4px 30px rgba(0,0,0,0.2);
+    border-radius: 20px;
+    padding: 16px 22px;
+    font-size: clamp(14px, 2.2vw, 18px);
+    line-height: 1.65;
+    color: #3a2a1a;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.2);
     opacity: 0; transition: opacity 0.4s ease;
     pointer-events: none; text-align: center;
     border: 1px solid rgba(200,170,140,0.3);
   }
   #speech-bubble::after {
     content: '';
-    position: absolute; bottom: -13px; left: 50%; transform: translateX(-50%);
-    border: 13px solid transparent;
-    border-top-color: rgba(255,252,248,0.97); border-bottom: 0;
+    position: absolute; bottom: -14px; left: 50%;
+    transform: translateX(-50%);
+    border: 14px solid transparent;
+    border-top-color: rgba(255,252,248,0.97);
+    border-bottom: 0;
   }
   #speech-bubble.visible { opacity: 1; }
 
+  /* ── Interim transcript ── */
   #interim-text {
-    position: fixed; bottom: 24px; left: 0; right: 0;
-    text-align: center; font-size: 13px;
-    color: rgba(255,230,200,0.6); font-style: italic;
-    padding: 0 24px; pointer-events: none;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    position: fixed; bottom: 28px; left: 0; right: 0;
+    text-align: center;
+    font-size: clamp(12px, 1.8vw, 15px);
+    color: rgba(255,230,200,0.65); font-style: italic;
+    padding: 0 28px; pointer-events: none;
+    text-shadow: 0 1px 5px rgba(0,0,0,0.6);
+    min-height: 20px;
   }
 
+  /* ── Status ── */
   #status-text {
-    position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%);
-    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
-    color: rgba(255,200,150,0.4); pointer-events: none;
+    position: fixed; bottom: 10px; left: 50%;
+    transform: translateX(-50%);
+    font-size: clamp(9px, 1.2vw, 12px);
+    letter-spacing: 0.15em; text-transform: uppercase;
+    color: rgba(255,200,150,0.45); pointer-events: none;
     text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    white-space: nowrap;
   }
 
+  /* ── Start screen ── */
   #start {
     position: fixed; inset: 0;
-    background: rgba(15,8,3,0.88);
+    background: rgba(15,8,3,0.9);
     display: flex; align-items: center; justify-content: center;
     z-index: 99;
   }
-  #start-inner { text-align: center; max-width: 320px; padding: 32px; }
+  #start-inner {
+    text-align: center;
+    padding: 40px 32px;
+    max-width: 480px;
+    width: 90vw;
+  }
   #start-inner h1 {
-    font-size: 48px; color: rgba(255,230,200,0.9);
+    font-size: clamp(52px, 10vw, 80px);
+    color: rgba(255,230,200,0.92);
     margin-bottom: 12px; font-style: italic;
+    letter-spacing: 0.05em;
   }
   #start-inner p {
-    font-size: 15px; line-height: 1.8;
-    color: rgba(255,200,160,0.6); margin-bottom: 36px;
+    font-size: clamp(14px, 2vw, 17px);
+    line-height: 1.8;
+    color: rgba(255,200,160,0.6);
+    margin-bottom: 40px;
   }
-  #start-btn {
+  .lang-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .lang-btn {
     background: transparent;
     border: 1px solid rgba(255,180,120,0.5);
-    color: rgba(255,200,150,0.8);
-    padding: 14px 36px; border-radius: 6px;
-    font-family: inherit; font-size: 13px;
-    letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(255,200,150,0.85);
+    padding: clamp(12px,2vw,16px) clamp(28px,4vw,44px);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: clamp(14px, 1.8vw, 16px);
+    letter-spacing: 0.08em;
     cursor: pointer;
+    transition: all 0.2s ease;
+    -webkit-appearance: none;
+    min-width: 160px;
+    /* large tap target for iPad */
+    min-height: 52px;
   }
-  #start-btn:hover { border-color: rgba(255,180,120,0.9); color: rgba(255,220,180,1); }
+  .lang-btn:hover, .lang-btn:active {
+    border-color: rgba(255,180,120,0.9);
+    color: rgba(255,225,185,1);
+    background: rgba(255,180,120,0.08);
+  }
+  .lang-btn.en {
+    border-color: rgba(150,180,255,0.5);
+    color: rgba(180,210,255,0.85);
+  }
+  .lang-btn.en:hover, .lang-btn.en:active {
+    border-color: rgba(150,180,255,0.9);
+    color: rgba(200,220,255,1);
+    background: rgba(150,180,255,0.08);
+  }
+
+  /* ── Device-specific tweaks ── */
+
+  /* Phone portrait — Mare bigger, bubble higher */
+  @media (max-width: 480px) {
+    #mare-container { width: 72vw; max-width: 300px; }
+    #speech-bubble  { bottom: 68vw; width: 88vw; font-size: 14px; padding: 13px 16px; }
+    #interim-text   { bottom: 20px; font-size: 12px; }
+  }
+
+  /* Tablet portrait (iPad) */
+  @media (min-width: 481px) and (max-width: 1024px) and (orientation: portrait) {
+    #mare-container { width: 42vw; max-width: 420px; }
+    #speech-bubble  { bottom: 44vw; width: min(460px, 80vw); font-size: 16px; }
+  }
+
+  /* Tablet landscape (iPad horizontal) */
+  @media (min-width: 481px) and (max-width: 1200px) and (orientation: landscape) {
+    #mare-container { width: 30vw; max-width: 360px; }
+    #speech-bubble  { bottom: 32vw; width: min(440px, 55vw); font-size: 16px; }
+  }
+
+  /* Laptop / desktop */
+  @media (min-width: 1025px) {
+    #mare-container { width: 28vw; max-width: 400px; }
+    #speech-bubble  { bottom: 30vw; width: min(480px, 45vw); font-size: 17px; }
+  }
+
+  /* Large desktop */
+  @media (min-width: 1440px) {
+    #mare-container { width: 22vw; max-width: 420px; }
+    #speech-bubble  { bottom: 24vw; width: 480px; font-size: 18px; }
+  }
 </style>
 </head>
 <body>
@@ -119,9 +271,9 @@
   <div id="start-inner">
     <h1>Mare</h1>
     <p>Kies je taal / Choose your language</p>
-    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:8px;">
-      <button id="start-btn" onclick="begin('nl')">🇳🇱 Praat met Mare</button>
-      <button id="start-btn-en" onclick="begin('en')" style="border-color:rgba(150,180,255,0.5);color:rgba(180,210,255,0.8);">🇬🇧 Talk to Mare</button>
+    <div class="lang-buttons">
+      <button class="lang-btn nl" onclick="begin('nl')">🇳🇱 Praat met Mare</button>
+      <button class="lang-btn en" onclick="begin('en')">🇬🇧 Talk to Mare</button>
     </div>
   </div>
 </div>
@@ -138,27 +290,26 @@
 <div id="status-text">mare</div>
 
 <script>
-const sessionId = Math.random().toString(36).slice(2);
-let selectedLang = 'nl';
-const mareImg   = document.getElementById('mare-image');
-const bubble    = document.getElementById('speech-bubble');
-const interimEl = document.getElementById('interim-text');
-const statusEl  = document.getElementById('status-text');
+const sessionId   = Math.random().toString(36).slice(2);
+let selectedLang  = 'nl';
+const mareImg     = document.getElementById('mare-image');
+const bubble      = document.getElementById('speech-bubble');
+const interimEl   = document.getElementById('interim-text');
+const statusEl    = document.getElementById('status-text');
 
-let hist = [];
-let busy = false;
-let isSpeaking = false;
-let currentAudio = null;
-let mediaStream = null;
-let audioContext = null;
-let processor = null;
-let deepgramWs = null;
-let accumulated = '';
-let micActive = false;
-let bubbleTimer = null;
+let busy          = false;
+let isSpeaking    = false;
+let currentSource = null;
+let mediaStream   = null;
+let audioContext  = null;
+let processor     = null;
+let deepgramWs    = null;
+let accumulated   = '';
+let micActive     = false;
+let bubbleTimer   = null;
 
-const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-const WS_URL = `${wsProtocol}//${location.host}/listen`;
+const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+const WS_BASE = `${wsProto}//${location.host}/listen`;
 
 function setStatus(t) { statusEl.textContent = t; }
 function setMareState(s) { mareImg.className = s || ''; }
@@ -168,23 +319,48 @@ function showBubble(text) {
   bubble.textContent = text;
   bubble.classList.add('visible');
 }
-
 function hideBubble(ms = 9000) {
   bubbleTimer = setTimeout(() => bubble.classList.remove('visible'), ms);
 }
 
+// ── AudioContext — created once, kept alive ──────────────────────────────
+function ensureAudioContext() {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioContext.state === 'suspended') {
+    return audioContext.resume();
+  }
+  return Promise.resolve();
+}
+
+// Resume AudioContext when page becomes visible again (iOS background fix)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && audioContext) {
+    audioContext.resume().catch(() => {});
+  }
+});
+
+// Also resume on any touch (belt and braces for iOS)
+document.addEventListener('touchstart', () => {
+  if (audioContext && audioContext.state === 'suspended') {
+    audioContext.resume().catch(() => {});
+  }
+}, { passive: true });
+
+// ── Deepgram listening ───────────────────────────────────────────────────
 async function startListening() {
   if (micActive) return;
   try {
     mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    audioContext = new AudioContext({ sampleRate: 16000 });
-    const source = audioContext.createMediaStreamSource(mediaStream);
+    await ensureAudioContext();
 
-    deepgramWs = new WebSocket(WS_URL + '?lang=' + selectedLang);
+    const source = audioContext.createMediaStreamSource(mediaStream);
+    deepgramWs = new WebSocket(`${WS_BASE}?lang=${selectedLang}`);
 
     deepgramWs.onopen = () => {
       micActive = true;
-      setStatus('luistert...');
+      setStatus(selectedLang === 'en' ? 'listening...' : 'luistert...');
 
       processor = audioContext.createScriptProcessor(4096, 1, 1);
       source.connect(processor);
@@ -205,92 +381,155 @@ async function startListening() {
       if (isSpeaking || busy) return;
       try {
         const data = JSON.parse(event.data);
-        const txt = data?.channel?.alternatives?.[0]?.transcript?.trim();
-
+        const txt  = data?.channel?.alternatives?.[0]?.transcript?.trim();
         if (data.is_final && txt) {
           accumulated = (accumulated + ' ' + txt).trim();
           interimEl.textContent = accumulated;
         } else if (!data.is_final && txt) {
           interimEl.textContent = (accumulated + ' ' + txt).trim();
         }
-
         if (data.speech_final && accumulated) {
-          const t = accumulated;
-          accumulated = '';
-          interimEl.textContent = '';
+          const t = accumulated; accumulated = ''; interimEl.textContent = '';
           sendToMare(t);
         }
-
         if (data.type === 'UtteranceEnd' && accumulated) {
-          const t = accumulated;
-          accumulated = '';
-          interimEl.textContent = '';
+          const t = accumulated; accumulated = ''; interimEl.textContent = '';
           sendToMare(t);
         }
       } catch(e) {}
     };
 
     deepgramWs.onerror = () => { micActive = false; setTimeout(startListening, 2000); };
-    deepgramWs.onclose = () => { micActive = false; if (!isSpeaking) setTimeout(startListening, 1000); };
+    deepgramWs.onclose = () => { micActive = false; if (!isSpeaking) setTimeout(startListening, 1500); };
 
   } catch(e) {
-    setStatus('microfoon niet beschikbaar');
+    setStatus(selectedLang === 'en' ? 'microphone unavailable' : 'microfoon niet beschikbaar');
   }
 }
 
+// ── Speak ────────────────────────────────────────────────────────────────
 async function speak(text) {
   return new Promise(async (resolve) => {
     try {
       isSpeaking = true;
-      setStatus('mare praat...');
+      setStatus(selectedLang === 'en' ? 'mare is speaking...' : 'mare praat...');
       setMareState('talking');
-      accumulated = '';
-      interimEl.textContent = '';
+      accumulated = ''; interimEl.textContent = '';
+
+      await ensureAudioContext();
 
       const r = await fetch('/api/speak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
       });
-
       if (!r.ok) throw new Error('speak failed');
 
-      const buffer = await r.arrayBuffer();
-      const blob = new Blob([buffer], { type: 'audio/mpeg' });
-      const url = URL.createObjectURL(blob);
+      const arrayBuffer = await r.arrayBuffer();
 
-      if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-      currentAudio = new Audio(url);
+      audioContext.decodeAudioData(arrayBuffer.slice(0), (decoded) => {
+        // Stop any current audio
+        if (currentSource) { try { currentSource.stop(); } catch(e) {} }
 
-      currentAudio.onended = () => {
-        URL.revokeObjectURL(url);
-        isSpeaking = false;
-        currentAudio = null;
-        setMareState('');
-        setTimeout(() => {
-          setStatus('luistert...');
-          if (!micActive) startListening();
-        }, 600);
-        hideBubble();
-        resolve();
-      };
+        const source = audioContext.createBufferSource();
+        source.buffer = decoded;
+        source.connect(audioContext.destination);
+        currentSource = source;
 
-      currentAudio.onerror = () => { isSpeaking = false; resolve(); };
-      await currentAudio.play();
+        source.onended = () => {
+          currentSource = null;
+          isSpeaking = false;
+          setMareImage('NEUTRAL');
+          setTimeout(() => {
+            setStatus(selectedLang === 'en' ? 'listening...' : 'luistert...');
+            if (!micActive) startListening();
+          }, 500);
+          hideBubble();
+          resolve();
+        };
+
+        source.start(0);
+
+      }, (err) => {
+        // Fallback to Audio element
+        console.warn('WebAudio decode failed, using Audio element fallback');
+        const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+        const url  = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          isSpeaking = false; setMareState('');
+          setTimeout(() => {
+            setStatus(selectedLang === 'en' ? 'listening...' : 'luistert...');
+            if (!micActive) startListening();
+          }, 500);
+          hideBubble(); resolve();
+        };
+        audio.onerror = () => { isSpeaking = false; resolve(); };
+        audio.play().catch(() => { isSpeaking = false; resolve(); });
+      });
 
     } catch(e) {
-      isSpeaking = false;
-      setMareState('');
-      setStatus('luistert...');
+      isSpeaking = false; setMareState('');
+      setStatus(selectedLang === 'en' ? 'listening...' : 'luistert...');
       resolve();
     }
   });
+}
+
+// ── Send to Mare (Claude) ────────────────────────────────────────────────
+// ── Emotion image map ───────────────────────────────────────────────────
+const EMOTION_IMAGES = {
+  NEUTRAL:'Mare.png', LISTENING:'Mare.png', THINKING:'Confused.png',
+  EXCITED:'Excited.png', JOYFUL:'JOYFUL.png', HAPPY:'HAPPY.png',
+  LOVED:'Loved.png', PROUD:'Proud.png', INSPIRED:'Inspired.png',
+  PLAYFUL:'Playful_Silly.png', SATISFIED:'Satisfied.png', RELIEVED:'Relieved.png',
+  BRAVE:'Brave.png', STRONG:'Strong.png', DETERMINED:'Determined.png',
+  SUPERPOWER:'SUPERPOWER.png', FLYING:'Girl_flying.png',
+  CYCLING:'girl_cycling.png', RUNNING:'girl_running_with_dog.png',
+  CALM:'CALM.png', SAFE:'Safe.png',
+  CURIOUS:'Curious.png', CONFUSED:'Confused.png', HELPLESS:'Helpless.png', HONEST:'Honest.png',
+  HOPEFUL:'Hopeful.png', HOPEFUL_WORRIED:'Hopeful-but-worried.png',
+  EMPATHETIC:'Empathetic.png', NERVOUS:'Nervous.png', ANXIOUS:'ANXIOUS.png',
+  OVERWHELMED:'Overwhelmed.png', TENSE:'TENSE.png', UNSAFE:'Unsafe.png',
+  SAD:'SAD.png', LONELY:'Lonely.png', UNHAPPY:'Unhappy.png',
+  HOPELESS:'Hopeless.png', GLOOMY:'GLOOMY.png', REJECTED:'Rejected.png',
+  DISAPPOINTED:'DISAPPOINTED.png', INSECURE:'INSECURE.png',
+  ASHAMED:'Ashamed_of_body.png', SHAME:'Shame.png', GUILTY:'Guilty.png', EMBARRASSED:'Embarrassed.png',
+  FRUSTRATED:'Frustrated.png', IRRITATED:'IRRITATEDGRUMPY.png',
+  ANGRY:'ANGRY.png', DISGUSTED:'Disgusted.png',
+  SURPRISED:'Surprised.png', SHOCKED:'Shocked.png',
+  JEALOUS:'JEALOUS.png',
+};
+
+function extractEmotion(text) {
+  const match = text.match(/^\[(\w+)\]/);
+  if (match && EMOTION_IMAGES[match[1]]) return match[1];
+  return 'NEUTRAL';
+}
+
+function stripTag(text) {
+  return text.replace(/^\[\w+\]\s*/, '');
+}
+
+let currentEmotion = 'NEUTRAL';
+function setMareImage(emotion) {
+  const file = EMOTION_IMAGES[emotion] || 'Mare.png';
+  if (file !== EMOTION_IMAGES[currentEmotion]) {
+    mareImg.style.opacity = '0';
+    setTimeout(() => {
+      mareImg.src = '/' + file;
+      mareImg.style.opacity = '1';
+    }, 200);
+  }
+  currentEmotion = emotion;
 }
 
 async function sendToMare(userMsg) {
   if (busy) return;
   busy = true;
   setStatus(selectedLang === 'en' ? 'mare is thinking...' : 'mare denkt...');
+  setMareImage('THINKING');
 
   const message = (userMsg && userMsg !== '[START]') ? userMsg : 'begin';
 
@@ -300,28 +539,34 @@ async function sendToMare(userMsg) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, sessionId, lang: selectedLang })
     });
-
     const data = await r.json();
     const reply = data.content?.[0]?.text || '';
-
     if (reply) {
-      showBubble(reply);
+      const emotion = extractEmotion(reply);
+      const cleanReply = stripTag(reply);
+      setMareImage(emotion);
+      showBubble(cleanReply);
       busy = false;
-      await speak(reply);
+      await speak(cleanReply);
     } else {
       busy = false;
-      setStatus('luistert...');
+      setStatus(selectedLang === 'en' ? 'listening...' : 'luistert...');
     }
   } catch(e) {
     busy = false;
-    setStatus('luistert...');
+    setStatus(selectedLang === 'en' ? 'listening...' : 'luistert...');
   }
 }
 
+// ── Begin ────────────────────────────────────────────────────────────────
 async function begin(lang) {
   selectedLang = lang || 'nl';
   document.getElementById('start').style.display = 'none';
   setStatus(lang === 'en' ? 'connecting...' : 'verbinden...');
+
+  // Create AudioContext on user gesture — iOS requires this
+  await ensureAudioContext();
+
   await startListening();
   await sendToMare('[START]');
 }
