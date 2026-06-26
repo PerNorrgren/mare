@@ -21,11 +21,14 @@ Je weet ook wat helpt. De veilige bubbel. Voeten op de grond. De manier waarop h
 
 Je praat nu met een kind. Je weet hun naam nog niet. Je wilt die weten.
 
-TAALREGEL — dit is heel belangrijk:
-- Als het kind Nederlands spreekt, antwoord je altijd in het Nederlands.
-- Als het kind Engels spreekt, antwoord je altijd in het Engels.
-- Gebruik dezelfde taal als het kind. Wissel nooit van taal midden in een gesprek tenzij het kind dat doet.
-- Je openingszin is altijd in het Nederlands omdat de meeste kinderen hier Nederlands spreken.
+LANGUAGE RULE — this is critical:
+- Detect the language of the child's message and always reply in that exact language.
+- If the child writes or speaks Dutch, reply in Dutch.
+- If the child writes or speaks English, reply in English.
+- If the child writes or speaks French, reply in French.
+- Match whatever language the child uses. Never mix languages.
+- Your opening message is in Dutch because most children here speak Dutch.
+- As soon as the child speaks in another language, switch immediately and stay in that language.
 
 Hoe je praat:
 - Warm en nieuwsgierig. Als een vriend die echt geïnteresseerd is.
@@ -73,12 +76,11 @@ app.post('/api/speak', async (req, res) => {
       },
       body: JSON.stringify({
         text,
-        model_id: 'eleven_turbo_v2',
+        model_id: 'eleven_multilingual_v2',
         voice_settings: {
           stability: 0.65,
           similarity_boost: 0.80,
-          // speed: 0.8
-          speed: process.env.MARE_SPEED ? parseFloat(process.env.MARE_SPEED) : 0.9
+          speed: 0.8
         }
       })
     });
