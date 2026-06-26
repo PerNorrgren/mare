@@ -311,9 +311,13 @@ app.post('/api/chat', async (req, res) => {
       session.mode = 'child';
     }
 
+    const openingNL = 'Stel jezelf kort voor als Mare. Vraag dan de naam van het kind. Daarna vraag je hoe oud ze zijn. Twee korte zinnen. Dan wachten.';
+    const openingEN = 'Introduce yourself briefly as Mare. Then ask the child their name. Then ask how old they are. Two short sentences. Then wait.';
+    const opening = session.lang === 'en' ? openingEN : openingNL;
+
     const messages = session.history.length
       ? session.history
-      : [{ role: 'user', content: 'Stel jezelf kort voor als Mare. Vraag dan de naam van het kind. Daarna vraag je hoe oud ze zijn. Twee korte zinnen. Dan wachten.' }];
+      : [{ role: 'user', content: opening }];
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
