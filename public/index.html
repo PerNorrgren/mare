@@ -118,8 +118,11 @@
 <div id="start">
   <div id="start-inner">
     <h1>Mare</h1>
-    <p>Tik om met Mare te praten.<br>Ze wacht op je.</p>
-    <button id="start-btn" onclick="begin()">Praat met Mare</button>
+    <p>Kies je taal — Choose your language</p>
+    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+      <button id="start-btn" onclick="begin('nl')">🇳🇱 Praat met Mare</button>
+      <button id="start-btn-en" onclick="begin('en')" style="border-color:rgba(150,180,255,0.5);color:rgba(180,210,255,0.8);">🇬🇧 Talk to Mare</button>
+    </div>
   </div>
 </div>
 
@@ -136,6 +139,7 @@
 
 <script>
 const sessionId = Math.random().toString(36).slice(2);
+let selectedLang = 'nl';
 const mareImg   = document.getElementById('mare-image');
 const bubble    = document.getElementById('speech-bubble');
 const interimEl = document.getElementById('interim-text');
@@ -176,7 +180,7 @@ async function startListening() {
     audioContext = new AudioContext({ sampleRate: 16000 });
     const source = audioContext.createMediaStreamSource(mediaStream);
 
-    deepgramWs = new WebSocket(WS_URL);
+    deepgramWs = new WebSocket(WS_URL + '?lang=' + selectedLang);
 
     deepgramWs.onopen = () => {
       micActive = true;
@@ -286,7 +290,7 @@ async function speak(text) {
 async function sendToMare(userMsg) {
   if (busy) return;
   busy = true;
-  setStatus('mare denkt...');
+  setStatus(selectedLang === 'en' ? 'mare is thinking...' : 'mare denkt...');
 
   const message = (userMsg && userMsg !== '[START]') ? userMsg : 'begin';
 
@@ -294,7 +298,7 @@ async function sendToMare(userMsg) {
     const r = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, sessionId })
+      body: JSON.stringify({ message, sessionId, lang: selectedLang })
     });
 
     const data = await r.json();
@@ -314,9 +318,10 @@ async function sendToMare(userMsg) {
   }
 }
 
-async function begin() {
+async function begin(lang) {
+  selectedLang = lang || 'nl';
   document.getElementById('start').style.display = 'none';
-  setStatus('verbinden...');
+  setStatus(lang === 'en' ? 'connecting...' : 'verbinden...');
   await startListening();
   await sendToMare('[START]');
 }
