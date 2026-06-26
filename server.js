@@ -134,12 +134,8 @@ function buildSystemPrompt(session) {
   context += '--- EINDE CONTEXT ---\n';
 
   const langInstruction = session.lang === 'en'
-    ? '
-LANGUAGE: The user has selected English. Speak English unless the person switches language themselves.
-'
-    : '
-TAAL: De gebruiker heeft Nederlands gekozen. Spreek Nederlands tenzij de persoon zelf van taal wisselt.
-';
+    ? '\nLANGUAGE: The user has selected English. Speak English unless the person switches language themselves.\n'
+    : '\nTAAL: De gebruiker heeft Nederlands gekozen. Spreek Nederlands tenzij de persoon zelf van taal wisselt.\n';
 
   if (session.mode === 'caregiver') {
     return CAREGIVER_RULES + langInstruction + context;
