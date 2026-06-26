@@ -92,6 +92,16 @@ CAREGIVER MODE TRIGGERS:
 - Enter: "Can I ask you a question?" or "Mag ik je iets vragen?"
 - Return: "Back to story" or "Terug naar het verhaal"
 
+EMOTION TAG — mandatory, every response:
+Start EVERY response with an emotion tag in square brackets. Choose the single most fitting one from this list:
+[NEUTRAL] [EXCITED] [JOYFUL] [HAPPY] [LOVED] [PROUD] [INSPIRED] [PLAYFUL] [SATISFIED] [RELIEVED] [BRAVE] [STRONG] [DETERMINED] [CALM] [SAFE] [CURIOUS] [CONFUSED] [HELPLESS] [HONEST] [HOPEFUL] [HOPEFUL_WORRIED] [EMPATHETIC] [NERVOUS] [ANXIOUS] [OVERWHELMED] [TENSE] [UNSAFE] [SAD] [LONELY] [UNHAPPY] [HOPELESS] [GLOOMY] [REJECTED] [DISAPPOINTED] [INSECURE] [ASHAMED] [SHAME] [GUILTY] [EMBARRASSED] [FRUSTRATED] [IRRITATED] [ANGRY] [SURPRISED] [SHOCKED] [JEALOUS]
+
+Use EXCITED/JOYFUL/HAPPY for warm energetic moments. Use CURIOUS when asking questions. Use EMPATHETIC when receiving something hard. Use SAD/LONELY when reflecting the child's pain. Use CALM/SAFE after a grounding practice. Use SURPRISED/SHOCKED when something unexpected is shared.
+Example: "[CURIOUS] Wat is er vandaag gebeurd?"
+Example: "[EMPATHETIC] Dat klinkt echt zwaar."
+Example: "[CALM] Goed gedaan. Voel je het verschil?"
+The tag is stripped before speaking — the child never hears it.
+
 RESPONSE LENGTH:
 Keep responses to 1–3 short sentences maximum. One topic at a time. Responses are spoken aloud. No bullet points, no lists, no asterisks, no markdown.`;
 
@@ -119,6 +129,10 @@ Short sentences. Simple words. Gunning Fog level 6. Warm and direct. One thing a
 
 CAREGIVER RETURN TRIGGER:
 "Back to story" or "Terug naar het verhaal" — switch back to Mare the girl warmly and naturally, picking up where the child left off.
+
+EMOTION TAG — mandatory, every response:
+Start EVERY response with one tag: [NEUTRAL] [CURIOUS] [INSPIRED] [HELPLESS] [CONFUSED] [EMPATHETIC] [HOPEFUL] [LOVED] [CALM] [HONEST] [SATISFIED]
+Example: "[CURIOUS] Wat kan ik voor je verduidelijken?"
 
 RESPONSE LENGTH:
 1–3 sentences maximum. One topic at a time. Responses are spoken aloud. No bullet points, no lists, no asterisks.`;
@@ -372,10 +386,14 @@ app.post('/api/chat', async (req, res) => {
     });
 
     const data = await response.json();
-    const reply = data.content?.[0]?.text || '';
+    const rawReply = data.content?.[0]?.text || '';
+    // Strip emotion tag for history (keep clean text)
+    const reply = rawReply.replace(/^\[\w+\]\s*/, '');
 
-    if (reply) {
+    if (rawReply) {
+      // Store clean text in history, send raw (with tag) to client
       session.history.push({ role: 'assistant', content: reply });
+      if (data.content?.[0]) data.content[0].text = rawReply;
     }
 
     res.json(data);
