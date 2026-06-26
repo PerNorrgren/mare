@@ -389,10 +389,17 @@ wss.on('connection', (clientWs, req) => {
   console.log('Client connected for transcription');
 
   const urlParams = new URLSearchParams(req.url.replace('/listen', '').replace('?', ''));
-  const lang = urlParams.get('lang') === 'en' ? 'en-GB' : 'nl';
+  const isEnglish = urlParams.get('lang') === 'en';
+
+  // nova-3 for Dutch (better accuracy), nova-2 for English (proven reliable)
+  // Dutch gets more generous endpointing — sentences are longer
+  const dgModel    = isEnglish ? 'nova-2'  : 'nova-3';
+  const dgLang     = isEnglish ? 'en-GB'   : 'nl';
+  const dgEndpoint = isEnglish ? '400'     : '700';
+  const dgUtterance= isEnglish ? '1200'    : '2000';
 
   const deepgramWs = new WebSocket(
-    `wss://api.deepgram.com/v1/listen?model=nova-2&language=${lang}&encoding=linear16&sample_rate=16000&channels=1&smart_format=true&endpointing=400&utterance_end_ms=1200&interim_results=true`,
+    `wss://api.deepgram.com/v1/listen?model=${dgModel}&language=${dgLang}&encoding=linear16&sample_rate=16000&channels=1&smart_format=true&no_delay=true&endpointing=${dgEndpoint}&utterance_end_ms=${dgUtterance}&interim_results=true`,
     { headers: { Authorization: `Token ${DEEPGRAM_KEY}` } }
   );
 
