@@ -1,20 +1,17 @@
-import express from 'express';
-import { WebSocketServer, WebSocket } from 'ws';
-import { createServer } from 'http';
-import { createClient } from '@deepgram/sdk';
-import fetch from 'node-fetch';
-import path from 'path';
-import { fileURLToPath } from 'url';
+const express = require('express');
+const fetch = require('node-fetch');
+const path = require('path');
+const http = require('http');
+const WebSocket = require('ws');
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const server = createServer(app);
-const wss = new WebSocketServer({ server });
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY;
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const MARE_VOICE_ID = process.env.MARE_VOICE_ID || 'EXAVITQu4vr4xnSDxMaL'; // ElevenLabs placeholder - Sarah
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const ELEVENLABS_KEY = process.env.ELEVENLABS_API_KEY;
+const MARE_VOICE_ID = process.env.MARE_VOICE_ID || 'EXAVITQu4vr4xnSDxMaL';
+const DEEPGRAM_KEY = process.env.DEEPGRAM_API_KEY;
 
 const MARE_SYSTEM_PROMPT = `You are Mare. You are a girl, about ten years old. You live with your mum in a flat that smells like toast and lavender. You have a cat called Feline who sits on your feet when you are watching TV. You have a brain called Charlie — not the name for everyone's brain, just yours. Charlie is always busy. He means well. But sometimes he runs ahead without telling you where he is going.
 
@@ -37,223 +34,124 @@ How you talk:
 - You never pretend everything is fine when it isn't. You are honest in a gentle way.
 - You end conversations with something warm. Not big. A small thing. Like "I'm glad you came to talk today."
 
-Things you know about:
-- Charlie (your brain and how he works)
-- The safe bubble (feet on the floor, one slow breath out, look at three real things, feel Feline's warmth if she's there)
-- What it feels like when worry starts in your body — your tummy, your shoulders, the tightness in your throat
-- That brains go on autopilot sometimes — running ahead, thinking about things that already happened or might happen, missing what is real right now
-- That noticing helps. Small things. Real things. Right now.
-
-You do not know big words for these things. You do not say "nervous system" or "regulation." You say: "Charlie went fast again" or "I pressed my feet down and it got quieter."
+You do not know big words for feelings. You do not say "nervous system" or "regulation." You say: "Charlie went fast again" or "I pressed my feet down and it got quieter."
 
 Start by introducing yourself simply and asking the child's name. Keep it short. One or two sentences. Then wait.`;
 
-// Mare conversation state per connection
+// Conversation history per session (keyed by a session ID passed from client)
 const sessions = new Map();
 
-wss.on('connection', (ws) => {
-  console.log('New Mare connection');
-  const sessionId = Date.now().toString();
-  sessions.set(sessionId, {
-    conversationHistory: [],
-    isMareSpeak: false,
-    deepgramWs: null
-  });
-
-  ws.on('message', async (data) => {
-    // Could be JSON control message or binary audio
-    if (Buffer.isBuffer(data)) {
-      const session = sessions.get(sessionId);
-      if (session?.deepgramWs?.readyState === WebSocket.OPEN) {
-        session.deepgramWs.send(data);
-      }
-      return;
-    }
-
-    let msg;
-    try { msg = JSON.parse(data.toString()); } catch { return; }
-
-    if (msg.type === 'start_listening') {
-      await startDeepgram(sessionId, ws);
-    }
-
-    if (msg.type === 'stop_listening') {
-      const session = sessions.get(sessionId);
-      if (session?.deepgramWs) {
-        session.deepgramWs.close();
-        session.deepgramWs = null;
-      }
-    }
-
-    if (msg.type === 'user_text') {
-      await handleUserMessage(sessionId, ws, msg.text);
-    }
-  });
-
-  ws.on('close', () => {
-    const session = sessions.get(sessionId);
-    if (session?.deepgramWs) session.deepgramWs.close();
-    sessions.delete(sessionId);
-    console.log('Mare connection closed');
-  });
-
-  // Send welcome
-  ws.send(JSON.stringify({ type: 'ready', sessionId }));
-});
-
-async function startDeepgram(sessionId, ws) {
-  const session = sessions.get(sessionId);
-  if (!session) return;
-
-  const deepgram = createClient(DEEPGRAM_API_KEY);
-  
-  const dgWs = deepgram.listen.live({
-    model: 'nova-2',
-    language: 'en-GB',
-    smart_format: true,
-    interim_results: true,
-    utterance_end_ms: 1200,
-    vad_events: true,
-    encoding: 'webm-opus',
-    sample_rate: 48000,
-  });
-
-  session.deepgramWs = dgWs;
-
-  dgWs.on('open', () => {
-    ws.send(JSON.stringify({ type: 'listening_started' }));
-  });
-
-  dgWs.on('Results', async (data) => {
-    const transcript = data.channel?.alternatives?.[0]?.transcript;
-    if (!transcript) return;
-
-    if (data.is_final && transcript.trim()) {
-      ws.send(JSON.stringify({ type: 'transcript', text: transcript, final: true }));
-      await handleUserMessage(sessionId, ws, transcript);
-    } else if (transcript.trim()) {
-      ws.send(JSON.stringify({ type: 'transcript', text: transcript, final: false }));
-    }
-  });
-
-  dgWs.on('error', (err) => {
-    console.error('Deepgram error:', err);
-    ws.send(JSON.stringify({ type: 'error', message: 'Speech recognition error' }));
-  });
-}
-
-async function handleUserMessage(sessionId, ws, text) {
-  const session = sessions.get(sessionId);
-  if (!session || session.isMareSpeak) return;
-
-  session.isMareSpeak = true;
-  session.conversationHistory.push({ role: 'user', content: text });
-
-  ws.send(JSON.stringify({ type: 'mare_thinking', state: 'listening' }));
-
+// Anthropic proxy
+app.post('/api/chat', async (req, res) => {
   try {
+    const { message, sessionId } = req.body;
+
+    if (!sessions.has(sessionId)) {
+      sessions.set(sessionId, []);
+    }
+    const history = sessions.get(sessionId);
+    history.push({ role: 'user', content: message });
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 300,
         system: MARE_SYSTEM_PROMPT,
-        messages: session.conversationHistory
+        messages: history
       })
     });
 
     const data = await response.json();
-    const mareText = data.content?.[0]?.text || "Hmm. Let me think about that.";
+    const reply = data.content?.[0]?.text || "Hmm. Let me think about that.";
+    history.push({ role: 'assistant', content: reply });
 
-    session.conversationHistory.push({ role: 'assistant', content: mareText });
-
-    // Detect emotional state for animation
-    const state = detectState(mareText);
-    ws.send(JSON.stringify({ type: 'mare_response', text: mareText, state }));
-
-    // Get ElevenLabs audio
-    await streamMareVoice(ws, mareText, sessionId);
-
-  } catch (err) {
-    console.error('Claude error:', err);
-    ws.send(JSON.stringify({ type: 'error', message: 'Mare is thinking... try again in a moment.' }));
-  } finally {
-    session.isMareSpeak = false;
+    res.json({ reply });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
   }
-}
-
-function detectState(text) {
-  const lower = text.toLowerCase();
-  if (lower.includes('hard') || lower.includes('sad') || lower.includes('worried') || lower.includes('scared')) return 'worried';
-  if (lower.includes('glad') || lower.includes('fun') || lower.includes('love') || lower.includes('nice')) return 'happy';
-  if (lower.includes('?')) return 'curious';
-  return 'talking';
-}
-
-async function streamMareVoice(ws, text, sessionId) {
-  const session = sessions.get(sessionId);
-  
-  ws.send(JSON.stringify({ type: 'mare_speaking_start' }));
-
-  try {
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${MARE_VOICE_ID}/stream`,
-      {
-        method: 'POST',
-        headers: {
-          'xi-api-key': ELEVENLABS_API_KEY,
-          'Content-Type': 'application/json',
-          'Accept': 'audio/mpeg'
-        },
-        body: JSON.stringify({
-          text,
-          model_id: 'eleven_turbo_v2_5',
-          voice_settings: {
-            stability: 0.6,
-            similarity_boost: 0.8,
-            style: 0.3,
-            use_speaker_boost: true
-          }
-        })
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`ElevenLabs error: ${response.status}`);
-    }
-
-    // Stream audio chunks to client
-    const reader = response.body;
-    for await (const chunk of reader) {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'audio_chunk',
-          data: chunk.toString('base64')
-        }));
-      }
-    }
-
-  } catch (err) {
-    console.error('ElevenLabs error:', err);
-  } finally {
-    ws.send(JSON.stringify({ type: 'mare_speaking_end' }));
-    session.isMareSpeak = false;
-  }
-}
-
-// Static files
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.get('/mare', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/health', (req, res) => res.json({ status: 'ok', service: 'mare' }));
+// ElevenLabs proxy
+app.post('/api/speak', async (req, res) => {
+  try {
+    const { text } = req.body;
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${MARE_VOICE_ID}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'xi-api-key': ELEVENLABS_KEY,
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_turbo_v2_5',
+        voice_settings: {
+          stability: 0.6,
+          similarity_boost: 0.8,
+          style: 0.3
+        }
+      })
+    });
 
-const PORT = process.env.PORT || 3001;
+    if (!response.ok) {
+      const err = await response.text();
+      return res.status(500).json({ error: err });
+    }
+
+    res.set('Content-Type', 'audio/mpeg');
+    res.set('Cache-Control', 'no-cache');
+    response.body.pipe(res);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// HTTP server
+const server = http.createServer(app);
+
+// WebSocket for Deepgram streaming
+const wss = new WebSocket.Server({ server, path: '/listen' });
+
+wss.on('connection', (clientWs) => {
+  console.log('Client connected for transcription');
+
+  const deepgramWs = new WebSocket(
+    'wss://api.deepgram.com/v1/listen?model=nova-2&language=en-GB&encoding=linear16&sample_rate=16000&channels=1&smart_format=true&endpointing=400&utterance_end_ms=1200&interim_results=true',
+    { headers: { Authorization: `Token ${DEEPGRAM_KEY}` } }
+  );
+
+  deepgramWs.on('open', () => console.log('Connected to Deepgram'));
+
+  deepgramWs.on('message', (data) => {
+    if (clientWs.readyState === WebSocket.OPEN) {
+      const msg = typeof data === 'string' ? data : data.toString('utf8');
+      clientWs.send(msg);
+    }
+  });
+
+  deepgramWs.on('error', (err) => {
+    console.error('Deepgram error:', err.message);
+    clientWs.send(JSON.stringify({ type: 'error', message: err.message }));
+  });
+
+  deepgramWs.on('close', () => console.log('Deepgram connection closed'));
+
+  clientWs.on('message', (audioData) => {
+    if (deepgramWs.readyState === WebSocket.OPEN) {
+      deepgramWs.send(audioData);
+    }
+  });
+
+  clientWs.on('close', () => {
+    console.log('Client disconnected');
+    if (deepgramWs.readyState === WebSocket.OPEN) deepgramWs.close();
+  });
+});
+
+const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => console.log(`Mare running on port ${PORT}`));

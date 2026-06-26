@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Talk to Mare</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Georgia, serif; height: 100vh; overflow: hidden; background: #1a0f0a; }
+
+  #scene {
+    position: relative;
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+  }
+
+  #bedroom-bg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: center bottom;
+  }
+
+  #scene::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 35%;
+    background: linear-gradient(to top, rgba(60,30,20,0.35), transparent);
+    pointer-events: none;
+  }
+
+  #mare-container {
+    position: absolute; bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: min(360px, 60vw);
+    display: flex; flex-direction: column; align-items: center;
+    pointer-events: none;
+  }
+
+  #mare-image {
+    width: 100%; height: auto;
+    mix-blend-mode: multiply;
+    filter: drop-shadow(0 8px 24px rgba(0,0,0,0.4));
+    animation: breathe 4s ease-in-out infinite;
+    transition: filter 0.5s ease;
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  #mare-image.talking { animation: talk 0.35s ease-in-out infinite alternate; }
+  @keyframes talk {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-5px); }
+  }
+
+  #mare-image.listening { animation: listen 2.5s ease-in-out infinite; }
+  @keyframes listen {
+    0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+    50%       { transform: translateY(-5px) rotate(1deg); }
+  }
+
+  #speech-bubble {
+    position: absolute;
+    bottom: calc(min(360px, 60vw) * 0.85);
+    left: 50%; transform: translateX(-50%);
+    width: min(360px, 86vw);
+    background: rgba(255,252,248,0.97);
+    border-radius: 18px;
+    padding: 14px 18px;
+    font-size: 15px; line-height: 1.6;
+    color: #3a2a1a;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.25);
+    opacity: 0; transition: opacity 0.4s ease;
+    pointer-events: none; text-align: center;
+    border: 1px solid rgba(200,170,140,0.3);
+  }
+  #speech-bubble::after {
+    content: '';
+    position: absolute; bottom: -13px; left: 50%; transform: translateX(-50%);
+    border: 13px solid transparent;
+    border-top-color: rgba(255,252,248,0.97);
+    border-bottom: 0;
+  }
+  #speech-bubble.visible { opacity: 1; }
+
+  #transcript-area {
+    position: absolute; top: 16px; left: 16px; right: 16px;
+    background: rgba(0,0,0,0.25); backdrop-filter: blur(8px);
+    border-radius: 12px; padding: 10px 14px;
+    color: rgba(255,240,220,0.85); font-size: 13px; font-style: italic;
+    text-align: center; opacity: 0; transition: opacity 0.3s ease;
+    min-height: 36px;
+  }
+  #transcript-area.visible { opacity: 1; }
+
+  #status {
+    position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,230,200,0.7); font-size: 12px; letter-spacing: 0.08em;
+    text-align: center; pointer-events: none; white-space: nowrap;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  }
+
+  #controls {
+    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+  }
+
+  #mic-btn {
+    width: 62px; height: 62px; border-radius: 50%;
+    border: 2px solid rgba(255,200,150,0.4);
+    background: rgba(60,30,15,0.6); backdrop-filter: blur(12px);
+    color: rgba(255,230,200,0.9); font-size: 24px;
+    cursor: pointer; transition: all 0.2s ease;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #mic-btn:hover { background: rgba(80,40,20,0.7); transform: scale(1.05); }
+  #mic-btn.active {
+    background: rgba(180,60,40,0.75);
+    border-color: rgba(255,150,120,0.8);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 2px 20px rgba(0,0,0,0.4), 0 0 0 0 rgba(220,80,60,0.5); }
+    50%       { box-shadow: 0 2px 20px rgba(0,0,0,0.4), 0 0 0 14px rgba(220,80,60,0); }
+  }
+  #mic-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  #loading {
+    position: absolute; inset: 0;
+    background: rgba(20,10,5,0.85);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 18px;
+    color: rgba(255,230,200,0.9); font-size: 15px;
+    z-index: 20; transition: opacity 0.6s ease;
+  }
+  #loading.hidden { opacity: 0; pointer-events: none; }
+
+  .spinner {
+    width: 38px; height: 38px;
+    border: 3px solid rgba(255,200,150,0.2);
+    border-top-color: rgba(255,180,120,0.9);
+    border-radius: 50%; animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="scene">
+  <img id="bedroom-bg" src="/Mare_Bedroom.png" alt="">
+  <div id="transcript-area"></div>
+  <div id="speech-bubble"></div>
+  <div id="mare-container">
+    <img id="mare-image" src="/Mare.png" alt="Mare">
+  </div>
+  <div id="status">Tap the mic to talk to Mare</div>
+  <div id="controls">
+    <button id="mic-btn">🎤</button>
+  </div>
+  <div id="loading"><div class="spinner"></div><div>Getting Mare ready…</div></div>
+</div>
+
+<script>
+const sessionId = Math.random().toString(36).slice(2);
+const mareImg   = document.getElementById('mare-image');
+const bubble    = document.getElementById('speech-bubble');
+const transcript= document.getElementById('transcript-area');
+const micBtn    = document.getElementById('mic-btn');
+const statusEl  = document.getElementById('status');
+const loadingEl = document.getElementById('loading');
+
+let isListening = false;
+let isBusy      = false;
+let mediaRecorder, stream, dgWs;
+let bubbleTimer;
+
+function setMareState(s) { mareImg.className = s; }
+
+function showBubble(text) {
+  clearTimeout(bubbleTimer);
+  bubble.textContent = text;
+  bubble.classList.add('visible');
+}
+
+function hideBubble(ms = 8000) {
+  bubbleTimer = setTimeout(() => bubble.classList.remove('visible'), ms);
+}
+
+function showTranscript(text) {
+  transcript.textContent = `"${text}"`;
+  transcript.classList.add('visible');
+  setTimeout(() => transcript.classList.remove('visible'), 4000);
+}
+
+// ── Deepgram WebSocket ──────────────────────────────────────────────────
+function startDeeepgram(onFinal) {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  dgWs = new WebSocket(`${protocol}//${location.host}/listen`);
+  dgWs.binaryType = 'arraybuffer';
+
+  dgWs.onopen = () => statusEl.textContent = 'Listening…';
+
+  dgWs.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      const alt  = data?.channel?.alternatives?.[0];
+      if (!alt) return;
+      const text = alt.transcript?.trim();
+      if (!text) return;
+
+      if (data.is_final) {
+        onFinal(text);
+      } else {
+        transcript.textContent = text;
+        transcript.classList.add('visible');
+      }
+    } catch {}
+  };
+
+  dgWs.onerror = () => statusEl.textContent = 'Transcription error';
+}
+
+// ── Chat + speak ────────────────────────────────────────────────────────
+async function sendToMare(text) {
+  isBusy = true;
+  micBtn.disabled = true;
+  setMareState('listening');
+  statusEl.textContent = 'Mare is thinking…';
+  showTranscript(text);
+
+  try {
+    // 1. Claude
+    const chatRes = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, sessionId })
+    });
+    const { reply } = await chatRes.json();
+    showBubble(reply);
+    setMareState('talking');
+
+    // 2. ElevenLabs
+    const speakRes = await fetch('/api/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: reply })
+    });
+    const blob = await speakRes.blob();
+    const url  = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onended = () => {
+      URL.revokeObjectURL(url);
+      setMareState('idle');
+      micBtn.disabled = false;
+      isBusy = false;
+      statusEl.textContent = 'Your turn — tap the mic';
+      hideBubble();
+    };
+    audio.play();
+
+  } catch(err) {
+    console.error(err);
+    statusEl.textContent = 'Something went wrong';
+    micBtn.disabled = false;
+    isBusy = false;
+    setMareState('idle');
+  }
+}
+
+// ── Mic ─────────────────────────────────────────────────────────────────
+async function startListening() {
+  if (isBusy || isListening) return;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    isListening = true;
+    micBtn.classList.add('active');
+    micBtn.textContent = '⏹';
+    bubble.classList.remove('visible');
+
+    startDeeepgram((finalText) => {
+      stopListening();
+      if (finalText) sendToMare(finalText);
+    });
+
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0 && dgWs?.readyState === WebSocket.OPEN) {
+        e.data.arrayBuffer().then(ab => dgWs.send(ab));
+      }
+    };
+    mediaRecorder.start(100);
+
+  } catch(err) {
+    statusEl.textContent = 'Microphone access needed';
+  }
+}
+
+function stopListening() {
+  if (!isListening) return;
+  isListening = false;
+  micBtn.classList.remove('active');
+  micBtn.textContent = '🎤';
+  if (mediaRecorder?.state !== 'inactive') mediaRecorder.stop();
+  stream?.getTracks().forEach(t => t.stop());
+  dgWs?.close();
+}
+
+micBtn.addEventListener('click', () => {
+  if (isListening) stopListening();
+  else startListening();
+});
+
+// ── Boot: Mare introduces herself ────────────────────────────────────────
+window.addEventListener('load', async () => {
+  loadingEl.classList.add('hidden');
+  await sendToMare('[START]');
+});
+
+document.addEventListener('dblclick', e => e.preventDefault());
+</script>
+</body>
+</html>
