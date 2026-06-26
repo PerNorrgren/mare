@@ -2,17 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Talk to Mare</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Georgia, serif; height: 100vh; overflow: hidden; background: #1a0f0a; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: #1a0f0a; font-family: Georgia, serif; }
 
-  #scene {
-    position: relative;
-    width: 100vw; height: 100vh;
-    overflow: hidden;
-  }
+  #scene { position: fixed; inset: 0; }
 
   #bedroom-bg {
     position: absolute; inset: 0;
@@ -20,58 +16,52 @@
     object-fit: cover; object-position: center bottom;
   }
 
+  /* bottom gradient so Mare sits naturally */
   #scene::after {
     content: '';
     position: absolute; bottom: 0; left: 0; right: 0;
-    height: 35%;
-    background: linear-gradient(to top, rgba(60,30,20,0.35), transparent);
+    height: 30%;
+    background: linear-gradient(to top, rgba(50,25,10,0.3), transparent);
     pointer-events: none;
   }
 
+  /* Mare */
   #mare-container {
     position: absolute; bottom: 0; left: 50%;
     transform: translateX(-50%);
-    width: min(360px, 60vw);
-    display: flex; flex-direction: column; align-items: center;
+    width: min(320px, 55vw);
     pointer-events: none;
   }
 
   #mare-image {
     width: 100%; height: auto;
     mix-blend-mode: multiply;
-    filter: drop-shadow(0 8px 24px rgba(0,0,0,0.4));
+    filter: drop-shadow(0 8px 24px rgba(0,0,0,0.35));
     animation: breathe 4s ease-in-out infinite;
-    transition: filter 0.5s ease;
   }
 
   @keyframes breathe {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-8px); }
+    50%       { transform: translateY(-8px); }
   }
 
-  #mare-image.talking { animation: talk 0.35s ease-in-out infinite alternate; }
+  #mare-image.talking  { animation: talk 0.35s ease-in-out infinite alternate; }
   @keyframes talk {
     from { transform: translateY(0); }
     to   { transform: translateY(-5px); }
   }
 
-  #mare-image.listening { animation: listen 2.5s ease-in-out infinite; }
-  @keyframes listen {
-    0%, 100% { transform: translateY(0) rotate(-1.5deg); }
-    50%       { transform: translateY(-5px) rotate(1deg); }
-  }
-
+  /* Speech bubble */
   #speech-bubble {
     position: absolute;
-    bottom: calc(min(360px, 60vw) * 0.85);
+    bottom: calc(min(320px, 55vw) * 0.9);
     left: 50%; transform: translateX(-50%);
-    width: min(360px, 86vw);
+    width: min(340px, 88vw);
     background: rgba(255,252,248,0.97);
     border-radius: 18px;
     padding: 14px 18px;
-    font-size: 15px; line-height: 1.6;
-    color: #3a2a1a;
-    box-shadow: 0 4px 30px rgba(0,0,0,0.25);
+    font-size: 15px; line-height: 1.6; color: #3a2a1a;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.2);
     opacity: 0; transition: opacity 0.4s ease;
     pointer-events: none; text-align: center;
     border: 1px solid rgba(200,170,140,0.3);
@@ -80,102 +70,105 @@
     content: '';
     position: absolute; bottom: -13px; left: 50%; transform: translateX(-50%);
     border: 13px solid transparent;
-    border-top-color: rgba(255,252,248,0.97);
-    border-bottom: 0;
+    border-top-color: rgba(255,252,248,0.97); border-bottom: 0;
   }
   #speech-bubble.visible { opacity: 1; }
 
-  #transcript-area {
-    position: absolute; top: 16px; left: 16px; right: 16px;
-    background: rgba(0,0,0,0.25); backdrop-filter: blur(8px);
-    border-radius: 12px; padding: 10px 14px;
-    color: rgba(255,240,220,0.85); font-size: 13px; font-style: italic;
-    text-align: center; opacity: 0; transition: opacity 0.3s ease;
-    min-height: 36px;
-  }
-  #transcript-area.visible { opacity: 1; }
-
-  #status {
-    position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
-    color: rgba(255,230,200,0.7); font-size: 12px; letter-spacing: 0.08em;
-    text-align: center; pointer-events: none; white-space: nowrap;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  /* Interim transcript */
+  #interim-text {
+    position: fixed; bottom: 24px; left: 0; right: 0;
+    text-align: center; font-size: 13px;
+    color: rgba(255,230,200,0.6); font-style: italic;
+    padding: 0 24px; pointer-events: none;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
   }
 
-  #controls {
-    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+  /* Status */
+  #status-text {
+    position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%);
+    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: rgba(255,200,150,0.4); pointer-events: none;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
   }
 
-  #mic-btn {
-    width: 62px; height: 62px; border-radius: 50%;
-    border: 2px solid rgba(255,200,150,0.4);
-    background: rgba(60,30,15,0.6); backdrop-filter: blur(12px);
-    color: rgba(255,230,200,0.9); font-size: 24px;
-    cursor: pointer; transition: all 0.2s ease;
-    box-shadow: 0 2px 20px rgba(0,0,0,0.4);
+  /* Start screen */
+  #start {
+    position: fixed; inset: 0;
+    background: rgba(15,8,3,0.88);
     display: flex; align-items: center; justify-content: center;
+    z-index: 99;
   }
-  #mic-btn:hover { background: rgba(80,40,20,0.7); transform: scale(1.05); }
-  #mic-btn.active {
-    background: rgba(180,60,40,0.75);
-    border-color: rgba(255,150,120,0.8);
-    animation: pulse 1.5s ease-in-out infinite;
+  #start-inner { text-align: center; max-width: 320px; padding: 32px; }
+  #start-inner h1 {
+    font-size: 48px; color: rgba(255,230,200,0.9);
+    margin-bottom: 12px; font-style: italic;
   }
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 2px 20px rgba(0,0,0,0.4), 0 0 0 0 rgba(220,80,60,0.5); }
-    50%       { box-shadow: 0 2px 20px rgba(0,0,0,0.4), 0 0 0 14px rgba(220,80,60,0); }
+  #start-inner p {
+    font-size: 15px; line-height: 1.8;
+    color: rgba(255,200,160,0.6); margin-bottom: 36px;
   }
-  #mic-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
-
-  #loading {
-    position: absolute; inset: 0;
-    background: rgba(20,10,5,0.85);
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 18px;
-    color: rgba(255,230,200,0.9); font-size: 15px;
-    z-index: 20; transition: opacity 0.6s ease;
+  #start-btn {
+    background: transparent;
+    border: 1px solid rgba(255,180,120,0.5);
+    color: rgba(255,200,150,0.8);
+    padding: 14px 36px; border-radius: 6px;
+    font-family: inherit; font-size: 13px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: pointer;
   }
-  #loading.hidden { opacity: 0; pointer-events: none; }
-
-  .spinner {
-    width: 38px; height: 38px;
-    border: 3px solid rgba(255,200,150,0.2);
-    border-top-color: rgba(255,180,120,0.9);
-    border-radius: 50%; animation: spin 1s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  #start-btn:hover { border-color: rgba(255,180,120,0.9); color: rgba(255,220,180,1); }
 </style>
 </head>
 <body>
+
+<!-- Start screen — needed so browser allows audio/mic on user gesture -->
+<div id="start">
+  <div id="start-inner">
+    <h1>Mare</h1>
+    <p>Tap to talk to Mare.<br>She is waiting.</p>
+    <button id="start-btn" onclick="begin()">Talk to Mare</button>
+  </div>
+</div>
+
 <div id="scene">
   <img id="bedroom-bg" src="/Mare_Bedroom.png" alt="">
-  <div id="transcript-area"></div>
   <div id="speech-bubble"></div>
   <div id="mare-container">
     <img id="mare-image" src="/Mare.png" alt="Mare">
   </div>
-  <div id="status">Tap the mic to talk to Mare</div>
-  <div id="controls">
-    <button id="mic-btn">🎤</button>
-  </div>
-  <div id="loading"><div class="spinner"></div><div>Getting Mare ready…</div></div>
 </div>
+
+<div id="interim-text"></div>
+<div id="status-text">mare</div>
 
 <script>
 const sessionId = Math.random().toString(36).slice(2);
-const mareImg   = document.getElementById('mare-image');
-const bubble    = document.getElementById('speech-bubble');
-const transcript= document.getElementById('transcript-area');
-const micBtn    = document.getElementById('mic-btn');
-const statusEl  = document.getElementById('status');
-const loadingEl = document.getElementById('loading');
 
-let isListening = false;
-let isBusy      = false;
-let mediaRecorder, stream, dgWs;
-let bubbleTimer;
+const mareImg    = document.getElementById('mare-image');
+const bubble     = document.getElementById('speech-bubble');
+const interimEl  = document.getElementById('interim-text');
+const statusEl   = document.getElementById('status-text');
 
-function setMareState(s) { mareImg.className = s; }
+let hist = [];
+let busy = false;
+let isSpeaking = false;
+let currentAudio = null;
+let mediaStream = null;
+let audioContext = null;
+let processor = null;
+let deepgramWs = null;
+let accumulated = '';
+let micActive = false;
+let bubbleTimer = null;
+
+const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+const WS_URL = `${wsProtocol}//${location.host}/listen`;
+
+function setStatus(t) { statusEl.textContent = t; }
+
+function setMareState(s) {
+  mareImg.className = s || '';
+}
 
 function showBubble(text) {
   clearTimeout(bubbleTimer);
@@ -183,141 +176,182 @@ function showBubble(text) {
   bubble.classList.add('visible');
 }
 
-function hideBubble(ms = 8000) {
+function hideBubble(ms = 9000) {
   bubbleTimer = setTimeout(() => bubble.classList.remove('visible'), ms);
 }
 
-function showTranscript(text) {
-  transcript.textContent = `"${text}"`;
-  transcript.classList.add('visible');
-  setTimeout(() => transcript.classList.remove('visible'), 4000);
-}
-
-// ── Deepgram WebSocket ──────────────────────────────────────────────────
-function startDeeepgram(onFinal) {
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  dgWs = new WebSocket(`${protocol}//${location.host}/listen`);
-  dgWs.binaryType = 'arraybuffer';
-
-  dgWs.onopen = () => statusEl.textContent = 'Listening…';
-
-  dgWs.onmessage = (e) => {
-    try {
-      const data = JSON.parse(e.data);
-      const alt  = data?.channel?.alternatives?.[0];
-      if (!alt) return;
-      const text = alt.transcript?.trim();
-      if (!text) return;
-
-      if (data.is_final) {
-        onFinal(text);
-      } else {
-        transcript.textContent = text;
-        transcript.classList.add('visible');
-      }
-    } catch {}
-  };
-
-  dgWs.onerror = () => statusEl.textContent = 'Transcription error';
-}
-
-// ── Chat + speak ────────────────────────────────────────────────────────
-async function sendToMare(text) {
-  isBusy = true;
-  micBtn.disabled = true;
-  setMareState('listening');
-  statusEl.textContent = 'Mare is thinking…';
-  showTranscript(text);
-
-  try {
-    // 1. Claude
-    const chatRes = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, sessionId })
-    });
-    const { reply } = await chatRes.json();
-    showBubble(reply);
-    setMareState('talking');
-
-    // 2. ElevenLabs
-    const speakRes = await fetch('/api/speak', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: reply })
-    });
-    const blob = await speakRes.blob();
-    const url  = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.onended = () => {
-      URL.revokeObjectURL(url);
-      setMareState('idle');
-      micBtn.disabled = false;
-      isBusy = false;
-      statusEl.textContent = 'Your turn — tap the mic';
-      hideBubble();
-    };
-    audio.play();
-
-  } catch(err) {
-    console.error(err);
-    statusEl.textContent = 'Something went wrong';
-    micBtn.disabled = false;
-    isBusy = false;
-    setMareState('idle');
-  }
-}
-
-// ── Mic ─────────────────────────────────────────────────────────────────
+// ── Always-on Deepgram listening (Mirror pattern exactly) ────────────────
 async function startListening() {
-  if (isBusy || isListening) return;
+  if (micActive) return;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    isListening = true;
-    micBtn.classList.add('active');
-    micBtn.textContent = '⏹';
-    bubble.classList.remove('visible');
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    audioContext = new AudioContext({ sampleRate: 16000 });
+    const source = audioContext.createMediaStreamSource(mediaStream);
 
-    startDeeepgram((finalText) => {
-      stopListening();
-      if (finalText) sendToMare(finalText);
-    });
+    deepgramWs = new WebSocket(WS_URL);
 
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0 && dgWs?.readyState === WebSocket.OPEN) {
-        e.data.arrayBuffer().then(ab => dgWs.send(ab));
-      }
+    deepgramWs.onopen = () => {
+      micActive = true;
+      setStatus('listening');
+
+      processor = audioContext.createScriptProcessor(4096, 1, 1);
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+
+      processor.onaudioprocess = (e) => {
+        if (isSpeaking || !deepgramWs || deepgramWs.readyState !== WebSocket.OPEN) return;
+        const input = e.inputBuffer.getChannelData(0);
+        const pcm16 = new Int16Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+          pcm16[i] = Math.max(-32768, Math.min(32767, input[i] * 32768));
+        }
+        deepgramWs.send(pcm16.buffer);
+      };
     };
-    mediaRecorder.start(100);
 
-  } catch(err) {
-    statusEl.textContent = 'Microphone access needed';
+    deepgramWs.onmessage = (event) => {
+      if (isSpeaking || busy) return;
+      try {
+        const data = JSON.parse(event.data);
+        const txt = data?.channel?.alternatives?.[0]?.transcript?.trim();
+
+        if (data.is_final && txt) {
+          accumulated = (accumulated + ' ' + txt).trim();
+          interimEl.textContent = accumulated;
+        } else if (!data.is_final && txt) {
+          interimEl.textContent = (accumulated + ' ' + txt).trim();
+        }
+
+        if (data.speech_final && accumulated) {
+          const t = accumulated;
+          accumulated = '';
+          interimEl.textContent = '';
+          sendToMare(t);
+        }
+
+        if (data.type === 'UtteranceEnd' && accumulated) {
+          const t = accumulated;
+          accumulated = '';
+          interimEl.textContent = '';
+          sendToMare(t);
+        }
+      } catch(e) {}
+    };
+
+    deepgramWs.onerror = () => {
+      micActive = false;
+      setTimeout(startListening, 2000);
+    };
+
+    deepgramWs.onclose = () => {
+      micActive = false;
+      if (!isSpeaking) setTimeout(startListening, 1000);
+    };
+
+  } catch(e) {
+    setStatus('mic unavailable');
   }
 }
 
-function stopListening() {
-  if (!isListening) return;
-  isListening = false;
-  micBtn.classList.remove('active');
-  micBtn.textContent = '🎤';
-  if (mediaRecorder?.state !== 'inactive') mediaRecorder.stop();
-  stream?.getTracks().forEach(t => t.stop());
-  dgWs?.close();
+// ── Speak (Mirror pattern exactly) ──────────────────────────────────────
+async function speak(text) {
+  return new Promise(async (resolve) => {
+    try {
+      isSpeaking = true;
+      setStatus('mare is speaking...');
+      setMareState('talking');
+      accumulated = '';
+      interimEl.textContent = '';
+
+      const r = await fetch('/api/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+
+      if (!r.ok) throw new Error('speak failed');
+
+      const buffer = await r.arrayBuffer();
+      const blob = new Blob([buffer], { type: 'audio/mpeg' });
+      const url = URL.createObjectURL(blob);
+
+      if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+      currentAudio = new Audio(url);
+
+      currentAudio.onended = () => {
+        URL.revokeObjectURL(url);
+        isSpeaking = false;
+        currentAudio = null;
+        setMareState('');
+        setTimeout(() => {
+          setStatus('listening');
+          if (!micActive) startListening();
+        }, 600);
+        hideBubble();
+        resolve();
+      };
+
+      currentAudio.onerror = () => { isSpeaking = false; resolve(); };
+      await currentAudio.play();
+
+    } catch(e) {
+      isSpeaking = false;
+      setMareState('');
+      setStatus('listening');
+      resolve();
+    }
+  });
 }
 
-micBtn.addEventListener('click', () => {
-  if (isListening) stopListening();
-  else startListening();
-});
+// ── Send to Mare (Claude) ────────────────────────────────────────────────
+async function sendToMare(userMsg) {
+  if (busy) return;
+  busy = true;
+  setStatus('mare is thinking...');
 
-// ── Boot: Mare introduces herself ────────────────────────────────────────
-window.addEventListener('load', async () => {
-  loadingEl.classList.add('hidden');
+  if (userMsg && userMsg !== '[START]') {
+    hist.push({ role: 'user', content: userMsg });
+  }
+
+  const messages = hist.length ? hist : [{ role: 'user', content: 'begin' }];
+
+  try {
+    const r = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 300,
+        messages
+      })
+    });
+
+    const data = await r.json();
+    const reply = data.content?.[0]?.text || '';
+
+    if (reply) {
+      if (!hist.find(m => m.role === 'user')) hist.push({ role: 'user', content: 'begin' });
+      hist.push({ role: 'assistant', content: reply });
+      showBubble(reply);
+      busy = false;
+      await speak(reply);
+    } else {
+      busy = false;
+      setStatus('listening');
+    }
+  } catch(e) {
+    busy = false;
+    setStatus('listening');
+  }
+}
+
+// ── Begin ────────────────────────────────────────────────────────────────
+async function begin() {
+  document.getElementById('start').style.display = 'none';
+  setStatus('opening...');
+  await startListening();
   await sendToMare('[START]');
-});
-
-document.addEventListener('dblclick', e => e.preventDefault());
+}
 </script>
 </body>
 </html>
