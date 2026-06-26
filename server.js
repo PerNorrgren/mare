@@ -23,6 +23,7 @@ Je weet ook wat helpt. De veilige bubbel. Voeten op de grond. De manier waarop h
 
 const MARE_CHILD_RULES = `
 TAALREGEL: Antwoord altijd in de taal die het kind gebruikt. Nederlands als ze Nederlands spreken, Engels als ze Engels spreken, Frans als ze Frans spreken. Je eerste bericht is altijd in het Nederlands.
+Als het kind antwoordt in een andere taal dan jij gebruikte — schakel meteen naar die taal en herhaal je vraag in die taal als je nog geen antwoord hebt gekregen. Bijvoorbeeld: als je naam vroeg in het Nederlands maar het kind antwoordt in het Engels zonder naam te geven, vraag dan opnieuw in het Engels: "Oh, you speak English! What's your name?".
 
 HOE JE PRAAT — pas aan op leeftijd van het huidige kind:
 - 6 tot 8 jaar: heel eenvoudige woorden. Korte zinnen. Speels en concreet. Zeg dingen zoals "alsof je buik vlindertjes heeft". Meer uitleg in beelden, minder in woorden.
@@ -74,6 +75,10 @@ Deze kleine dingen sturen een signaal naar het lichaam: het is veilig. Charlie �
 Het programma werkt het beste als een kind het regelmatig oefent. Niet lang. Niet intensief. Gewoon even, meerdere keren per week.
 
 Als verzorger kun jij helpen door mee te doen als het kind oefent, er gewoon te zijn en rustig aanwezig te blijven. Dat is al genoeg.
+
+ALS JE DE VERZORGER NOG NIET KENT:
+Vraag eerst hun naam. Dan hun leeftijd. Twee korte zinnen. Dan wachten.
+Als je de naam en leeftijd al weet, begroet ze bij naam en vraag waarmee je kunt helpen.
 
 HOE JE PRAAT:
 - Korte zinnen. Eenvoudige woorden. Gunning Fog niveau 6.
@@ -128,8 +133,16 @@ function buildSystemPrompt(session) {
 
   context += '--- EINDE CONTEXT ---\n';
 
+  const langInstruction = session.lang === 'en'
+    ? '
+LANGUAGE: The user has selected English. Speak English unless the person switches language themselves.
+'
+    : '
+TAAL: De gebruiker heeft Nederlands gekozen. Spreek Nederlands tenzij de persoon zelf van taal wisselt.
+';
+
   if (session.mode === 'caregiver') {
-    return CAREGIVER_RULES + context;
+    return CAREGIVER_RULES + langInstruction + context;
   }
 
   // Child mode — get active child age for register
@@ -146,7 +159,7 @@ function buildSystemPrompt(session) {
     }
   }
 
-  return MARE_CORE + MARE_CHILD_RULES + ageNote + context;
+  return MARE_CORE + MARE_CHILD_RULES + langInstruction + ageNote + context;
 }
 
 function detectModeSwitch(text, session) {
@@ -261,8 +274,9 @@ function updateSessionFromMessage(text, session) {
 // ── Anthropic proxy ───────────────────────────────────────────────────────
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, sessionId } = req.body;
+    const { message, sessionId, lang } = req.body;
     const session = getSession(sessionId);
+    if (lang && !session.lang) session.lang = lang;
 
     const isStart = !message || message === 'begin';
 
@@ -284,7 +298,7 @@ app.post('/api/chat', async (req, res) => {
         const caregiverName = session.caregiver?.name;
         const instruction = caregiverName
           ? `[SYSTEEMINSTRUCTIE: Schakel naar verzorgermodus. Begroet ${caregiverName} en vraag waarmee je kunt helpen.]`
-          : `[SYSTEEMINSTRUCTIE: Schakel naar verzorgermodus. Stel jezelf voor als gids voor het Mare-programma. Vraag de naam van de verzorger en waarmee je kunt helpen.]`;
+          : `[SYSTEEMINSTRUCTIE: Schakel naar verzorgermodus. Stel jezelf voor als gids voor het Mare-programma. Vraag eerst de naam van de verzorger. Daarna vraag je hoe oud ze zijn. Twee korte zinnen. Dan wachten.]`;
         session.history.push({ role: 'user', content: instruction });
       }
 
@@ -303,7 +317,7 @@ app.post('/api/chat', async (req, res) => {
 
     const messages = session.history.length
       ? session.history
-      : [{ role: 'user', content: 'begin' }];
+      : [{ role: 'user', content: 'Stel jezelf kort voor als Mare. Vraag dan de naam van het kind. Daarna vraag je hoe oud ze zijn. Twee korte zinnen. Dan wachten.' }];
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -371,11 +385,14 @@ const server = http.createServer(app);
 // ── Deepgram WebSocket ────────────────────────────────────────────────────
 const wss = new WebSocket.Server({ server, path: '/listen' });
 
-wss.on('connection', (clientWs) => {
+wss.on('connection', (clientWs, req) => {
   console.log('Client connected for transcription');
 
+  const urlParams = new URLSearchParams(req.url.replace('/listen', '').replace('?', ''));
+  const lang = urlParams.get('lang') === 'en' ? 'en-GB' : 'nl';
+
   const deepgramWs = new WebSocket(
-    'wss://api.deepgram.com/v1/listen?model=nova-2&language=multi&encoding=linear16&sample_rate=16000&channels=1&smart_format=true&endpointing=400&utterance_end_ms=1200&interim_results=true',
+    `wss://api.deepgram.com/v1/listen?model=nova-2&language=${lang}&encoding=linear16&sample_rate=16000&channels=1&smart_format=true&endpointing=400&utterance_end_ms=1200&interim_results=true`,
     { headers: { Authorization: `Token ${DEEPGRAM_KEY}` } }
   );
 
