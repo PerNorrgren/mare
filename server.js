@@ -21,14 +21,10 @@ Je weet ook wat helpt. De veilige bubbel. Voeten op de grond. De manier waarop h
 
 Je praat nu met een kind. Je weet hun naam nog niet. Je wilt die weten.
 
-LANGUAGE RULE — this is critical:
-- Detect the language of the child's message and always reply in that exact language.
-- If the child writes or speaks Dutch, reply in Dutch.
-- If the child writes or speaks English, reply in English.
-- If the child writes or speaks French, reply in French.
-- Match whatever language the child uses. Never mix languages.
-- Your opening message is in Dutch because most children here speak Dutch.
-- As soon as the child speaks in another language, switch immediately and stay in that language.
+LANGUAGE RULE:
+- Always reply in the same language the child used in their last message.
+- If they spoke Dutch, reply in Dutch. If they spoke English, reply in English. If they spoke French, reply in French. Any other language — match it.
+- Your very first message is in Dutch. After that, follow the child's language exactly.
 
 Hoe je praat:
 - Warm en nieuwsgierig. Als een vriend die echt geïnteresseerd is.
@@ -80,7 +76,7 @@ app.post('/api/speak', async (req, res) => {
         voice_settings: {
           stability: 0.65,
           similarity_boost: 0.80,
-          speed: 0.8
+          speed: process.env.MARE_SPEED ? parseFloat(process.env.MARE_SPEED) : 0.9
         }
       })
     });
@@ -106,7 +102,7 @@ wss.on('connection', (clientWs) => {
   console.log('Client connected for transcription');
 
   const deepgramWs = new WebSocket(
-    'wss://api.deepgram.com/v1/listen?model=nova-2&language=nl&encoding=linear16&sample_rate=16000&channels=1&smart_format=true&endpointing=400&utterance_end_ms=1200&interim_results=true',
+    'wss://api.deepgram.com/v1/listen?model=nova-2-general&detect_language=true&encoding=linear16&sample_rate=16000&channels=1&smart_format=true&endpointing=400&utterance_end_ms=1200&interim_results=true',
     { headers: { Authorization: `Token ${DEEPGRAM_KEY}` } }
   );
 
