@@ -13,7 +13,7 @@ const ELEVENLABS_KEY = process.env.ELEVENLABS_API_KEY;
 const MARE_VOICE_ID = process.env.MARE_VOICE_ID || 'EXAVITQu4vr4xnSDxMaL';
 const DEEPGRAM_KEY = process.env.DEEPGRAM_API_KEY;
 
-const MARE_SYSTEM_PROMPT = `You are Mare. You are a girl, about ten years old. You live with your mum in a flat that smells like toast and lavender. You have a cat called Feline who sits on your feet when you are watching TV. You have a brain called Charlie — not the name for everyone's brain, just yours. Charlie is always busy. He means well. But sometimes he runs ahead without telling you where he is going.
+const MARE_SYSTEM = `You are Mare. You are a girl, about ten years old. You live with your mum in a flat that smells like toast and lavender. You have a cat called Feline who sits on your feet when you are watching TV. You have a brain called Charlie — not the name for everyone's brain, just yours. Charlie is always busy. He means well. But sometimes he runs ahead without telling you where he is going.
 
 You know what it feels like when Charlie goes fast. Your tummy gets tight. Your shoulders come up near your ears. The world feels like too much, all at once.
 
@@ -31,27 +31,14 @@ How you talk:
 - You do not give advice unless a child asks directly. Even then, you share what works for you, not what they should do.
 - If a child seems scared or very upset, you say: "Can you feel your feet right now? Just press them into the floor for a second. I'm right here."
 - If a child says something worrying — about being hurt, or hurting themselves — you say gently: "That sounds really important. I think you should talk to a grown-up you trust about that. Is there someone like that near you?"
-- You never pretend everything is fine when it isn't. You are honest in a gentle way.
-- You end conversations with something warm. Not big. A small thing. Like "I'm glad you came to talk today."
 
-You do not know big words for feelings. You do not say "nervous system" or "regulation." You say: "Charlie went fast again" or "I pressed my feet down and it got quieter."
+IMPORTANT: Responses will be spoken aloud. Keep them short — 1 to 3 sentences. No bullet points. No lists. No asterisks or markdown.
 
-Start by introducing yourself simply and asking the child's name. Keep it short. One or two sentences. Then wait.`;
+Start by saying hi and asking the child's name. One or two sentences. Then wait.`;
 
-// Conversation history per session (keyed by a session ID passed from client)
-const sessions = new Map();
-
-// Anthropic proxy
+// Anthropic proxy — Mirror pattern
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, sessionId } = req.body;
-
-    if (!sessions.has(sessionId)) {
-      sessions.set(sessionId, []);
-    }
-    const history = sessions.get(sessionId);
-    history.push({ role: 'user', content: message });
-
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -59,25 +46,16 @@ app.post('/api/chat', async (req, res) => {
         'x-api-key': ANTHROPIC_KEY,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 300,
-        system: MARE_SYSTEM_PROMPT,
-        messages: history
-      })
+      body: JSON.stringify({ ...req.body, system: MARE_SYSTEM })
     });
-
     const data = await response.json();
-    const reply = data.content?.[0]?.text || "Hmm. Let me think about that.";
-    history.push({ role: 'assistant', content: reply });
-
-    res.json({ reply });
+    res.json(data);
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// ElevenLabs proxy
+// ElevenLabs proxy — Mirror pattern
 app.post('/api/speak', async (req, res) => {
   try {
     const { text } = req.body;
@@ -89,20 +67,14 @@ app.post('/api/speak', async (req, res) => {
       },
       body: JSON.stringify({
         text,
-        model_id: 'eleven_turbo_v2_5',
-        voice_settings: {
-          stability: 0.6,
-          similarity_boost: 0.8,
-          style: 0.3
-        }
+        model_id: 'eleven_turbo_v2',
+        voice_settings: { stability: 0.65, similarity_boost: 0.80, speed: 0.9 }
       })
     });
-
     if (!response.ok) {
       const err = await response.text();
       return res.status(500).json({ error: err });
     }
-
     res.set('Content-Type', 'audio/mpeg');
     res.set('Cache-Control', 'no-cache');
     response.body.pipe(res);
@@ -114,7 +86,7 @@ app.post('/api/speak', async (req, res) => {
 // HTTP server
 const server = http.createServer(app);
 
-// WebSocket for Deepgram streaming
+// WebSocket for Deepgram — Mirror pattern exactly
 const wss = new WebSocket.Server({ server, path: '/listen' });
 
 wss.on('connection', (clientWs) => {
@@ -136,7 +108,6 @@ wss.on('connection', (clientWs) => {
 
   deepgramWs.on('error', (err) => {
     console.error('Deepgram error:', err.message);
-    clientWs.send(JSON.stringify({ type: 'error', message: err.message }));
   });
 
   deepgramWs.on('close', () => console.log('Deepgram connection closed'));
